@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import AiInbox from './pages/AiInbox';
 import './App.css';
+import './services/sync'; // Initialize Firebase background sync
 
 function App() {
   // In a real app, we'd check IndexedDB/State for auth status
