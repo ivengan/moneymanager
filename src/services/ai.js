@@ -1,59 +1,64 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-// Initialize Gemini API
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-let genAI;
-let model;
-
-try {
-  if (API_KEY) {
-    genAI = new GoogleGenerativeAI(API_KEY);
-    model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Fast model for text parsing
-  }
-} catch (error) {
-  console.warn("Gemini initialization failed. Check your API key.", error);
-}
 
 /**
- * Parses raw text (SMS or receipt notes) into structured transaction data.
+ * Parses raw text (SMS or receipt notes) into structured transaction data using rule-based logic.
  * @param {string} rawText - The raw input text.
  * @returns {Promise<Object>} - Parsed transaction data containing amount, merchant, and category.
  */
 export async function parseTransactionText(rawText) {
-  if (!model) {
-    console.warn("Gemini not configured. Returning fallback data.");
-    return {
-      amount: 0,
-      merchant: "Unknown (No AI)",
-      category: "Uncategorized"
-    };
+  // Offline Rule-based Bot Logic
+  console.log("Using rule-based bot to parse:", rawText);
+  
+  let amount = 0;
+  let merchant = "Unknown";
+  let category = "Uncategorized";
+
+  // 1. Extract amount (look for RM or $ followed by numbers)
+  const amountMatch = rawText.match(/(?:RM|\$)?\s*(\d+(?:\.\d{2})?)/i);
+  if (amountMatch && amountMatch[1]) {
+    amount = parseFloat(amountMatch[1]);
   }
 
-  const prompt = `
-    You are a personal finance assistant. Parse the following raw transaction text or SMS and extract the amount, merchant name, and best matching category.
-    Categories should be broad (e.g., Food & Beverage, Transport, Transfer, Shopping, Utilities).
-    
-    Raw text: "${rawText}"
-    
-    Return EXACTLY a JSON object with this format (no markdown, no backticks, just JSON):
-    {
-      "amount": number,
-      "merchant": "string",
-      "category": "string"
+  // 2. Simple keyword mapping for categories and merchants
+  const lowerText = rawText.toLowerCase();
+  
+  const rules = [
+    { keywords: ['tealive', 'starbucks', 'coffee', 'mcdonalds', 'kfc', 'food'], category: 'Food & Beverage' },
+    { keywords: ['grab', 'uber', 'taxi', 'petrol', 'shell', 'petronas'], category: 'Transport' },
+    { keywords: ['transfer', 'sent to', 'received from'], category: 'Transfer' },
+    { keywords: ['shopee', 'lazada', 'mall', 'grocery', 'aeon'], category: 'Shopping' },
+    { keywords: ['tnb', 'water', 'electric', 'bill', 'maxis', 'celcom', 'unifi'], category: 'Utilities' }
+  ];
+
+  // Attempt to categorize based on keywords
+  for (const rule of rules) {
+    const matchedKeyword = rule.keywords.find(kw => lowerText.includes(kw));
+    if (matchedKeyword) {
+      category = rule.category;
+      
+      if (category === 'Transfer') {
+        const transferMatch = rawText.match(/to\s+([a-zA-Z]+)/i);
+        merchant = transferMatch ? transferMatch[1] : "Transfer Recipient";
+      } else {
+        // Capitalize first letter of matched keyword for merchant name
+        merchant = matchedKeyword.charAt(0).toUpperCase() + matchedKeyword.slice(1);
+      }
+      break;
     }
-  `;
-
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(text);
-  } catch (err) {
-    console.error('Error parsing with Gemini:', err);
-    return {
-      amount: 0,
-      merchant: "Error parsing",
-      category: "Uncategorized"
-    };
   }
+
+  // 3. Fallback for merchant if rules didn't catch one
+  if (merchant === "Unknown") {
+      const words = rawText.split(/[\s/]+/);
+      // find a word that is not a number and not RM/SMS
+      const possibleMerchant = words.find(w => !w.match(/\d/) && !['rm', 'sms:', 'sms'].includes(w.toLowerCase()));
+      if (possibleMerchant) {
+          merchant = possibleMerchant;
+      }
+  }
+
+  return {
+    amount,
+    merchant,
+    category
+  };
 }
