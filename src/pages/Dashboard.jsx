@@ -3,14 +3,13 @@ import { PlusCircle, Bell, Inbox } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import QuickEntryModal from '../components/QuickEntryModal';
 
-import { getTransactions } from '../services/db';
+import { getTransactions, getObligations } from '../services/db';
 
 function Dashboard() {
   const [netWorth, setNetWorth] = useState(15450.50);
   const [budget, setBudget] = useState({ total: 3000, spent: 0 });
-  const [urgentItems, setUrgentItems] = useState([
-    { id: 1, title: 'UOB Balance Transfer', amount: 500, due: 'Today' }
-  ]);
+  const [lockedExpenses, setLockedExpenses] = useState(0);
+  const [urgentItems, setUrgentItems] = useState([]);
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
 
   const loadData = async () => {
@@ -19,6 +18,51 @@ function Dashboard() {
       const totalSpent = txs.reduce((sum, t) => sum + (t.amount || 0), 0);
       setNetWorth(15450.50 - totalSpent); // Adjust initial mocked balance
       setBudget(prev => ({ ...prev, spent: totalSpent }));
+
+      // Obligations logic
+      const obs = await getObligations();
+      let locked = 0;
+      let urgents = [];
+      const today = new Date();
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(today.getDate() + 30);
+      
+      obs.forEach(ob => {
+        if (ob.type === 'subscription') locked += (ob.amount || 0);
+        if (ob.type === 'installment' && ob.termsCompleted < ob.totalTerms) locked += (ob.amountPerTerm || 0);
+        
+        // Strategic Debt Warnings
+        if (ob.type === 'strategic_debt' && ob.gracePeriodEndDate) {
+          const graceDate = new Date(ob.gracePeriodEndDate);
+          if (graceDate <= thirtyDaysFromNow) {
+            urgents.push({
+              id: ob.id,
+              title: `CRITICAL: ${ob.name} Grace Period Ends Soon!`,
+              amount: ob.remainingDebt,
+              due: ob.gracePeriodEndDate,
+              isCritical: true
+            });
+          }
+        }
+        
+        // Standard upcoming dues (within 5 days)
+        if (ob.nextDueDate) {
+          const dueDate = new Date(ob.nextDueDate);
+          const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 0 && diffDays <= 5) {
+            urgents.push({
+              id: `due_${ob.id}`,
+              title: `Due: ${ob.name}`,
+              amount: ob.type === 'installment' ? ob.amountPerTerm : (ob.type === 'subscription' ? ob.amount : ob.minimumPayment),
+              due: diffDays === 0 ? 'Today' : `In ${diffDays} days`,
+              isCritical: false
+            });
+          }
+        }
+      });
+      
+      setLockedExpenses(locked);
+      setUrgentItems(urgents);
     } catch (err) {
       console.error(err);
     }
@@ -28,7 +72,7 @@ function Dashboard() {
     loadData();
   }, []);
 
-  const remainingBudget = budget.total - budget.spent;
+  const remainingBudget = budget.total - budget.spent - lockedExpenses;
   const budgetPercentage = (remainingBudget / budget.total) * 100;
   
   // Warning state if < 20% budget remains
@@ -50,8 +94,8 @@ function Dashboard() {
           <button className="glass-panel" onClick={() => navigate('/bot-inbox')} style={{ padding: '8px', borderRadius: '50%', display: 'flex', border: 'none', cursor: 'pointer' }}>
             <Inbox size={20} color="var(--primary-color)" />
           </button>
-          <button className="glass-panel" style={{ padding: '8px', borderRadius: '50%', display: 'flex', border: 'none', cursor: 'pointer' }}>
-            <Bell size={20} color="var(--text-primary)" />
+          <button className="glass-panel" onClick={() => navigate('/obligations')} style={{ padding: '8px', borderRadius: '50%', display: 'flex', border: 'none', cursor: 'pointer', background: 'var(--primary-gradient)' }}>
+            <Bell size={20} color="white" />
           </button>
         </div>
       </header>
@@ -84,7 +128,7 @@ function Dashboard() {
           }} />
         </div>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', textAlign: 'right' }}>
-          of RM {budget.total.toLocaleString()}
+          Locked expenses: RM {lockedExpenses.toLocaleString()}
         </p>
       </section>
 
@@ -95,12 +139,12 @@ function Dashboard() {
           <p style={{ color: 'var(--text-secondary)' }}>No urgent items.</p>
         ) : (
           urgentItems.map(item => (
-            <div key={item.id} className="glass-panel" style={{ padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '4px solid var(--danger-color)' }}>
+            <div key={item.id} className="glass-panel fade-in" style={{ padding: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `4px solid ${item.isCritical ? 'var(--danger-color)' : 'var(--warning-color)'}` }}>
               <div>
-                <p style={{ fontWeight: 600, fontSize: '0.95rem' }}>{item.title}</p>
-                <p style={{ fontSize: '0.8rem', color: 'var(--danger-color)', marginTop: '4px' }}>Due: {item.due}</p>
+                <p style={{ fontWeight: 600, fontSize: '0.95rem', color: item.isCritical ? 'var(--danger-color)' : 'inherit' }}>{item.title}</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Due: {item.due}</p>
               </div>
-              <p style={{ fontWeight: 600 }}>RM {item.amount}</p>
+              <p style={{ fontWeight: 600 }}>RM {item.amount?.toFixed(2)}</p>
             </div>
           ))
         )}

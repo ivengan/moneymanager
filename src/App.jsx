@@ -3,6 +3,7 @@ import PinLock from './pages/PinLock';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import BotInbox from './pages/BotInbox';
+import Obligations from './pages/Obligations';
 import './App.css';
 import './services/sync'; // Initialize Firebase background sync
 
@@ -18,6 +19,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/bot-inbox" element={<BotInbox />} />
+          <Route path="/obligations" element={<Obligations />} />
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

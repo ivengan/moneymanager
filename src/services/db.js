@@ -1,11 +1,11 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'MoneyManagerDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export async function initDB() {
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    upgrade(db, oldVersion, newVersion, transaction) {
       if (!db.objectStoreNames.contains('users')) {
         db.createObjectStore('users', { keyPath: 'id' });
       }
@@ -16,6 +16,11 @@ export async function initDB() {
         const txStore = db.createObjectStore('transactions', { keyPath: 'id', autoIncrement: true });
         txStore.createIndex('date', 'date');
         txStore.createIndex('accountId', 'accountId');
+      }
+      if (!db.objectStoreNames.contains('obligations')) {
+        const obStore = db.createObjectStore('obligations', { keyPath: 'id', autoIncrement: true });
+        obStore.createIndex('type', 'type');
+        obStore.createIndex('nextDueDate', 'nextDueDate');
       }
     },
   });
@@ -63,3 +68,21 @@ export async function getTransactions() {
   return db.getAllFromIndex('transactions', 'date');
 }
 
+// Obligations
+export async function addObligation(obligation) {
+  const db = await initDB();
+  return db.add('obligations', {
+    ...obligation,
+    createdAt: new Date().toISOString()
+  });
+}
+
+export async function getObligations() {
+  const db = await initDB();
+  return db.getAll('obligations');
+}
+
+export async function updateObligation(obligation) {
+  const db = await initDB();
+  return db.put('obligations', obligation);
+}
