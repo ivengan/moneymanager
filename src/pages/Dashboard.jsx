@@ -6,6 +6,7 @@ import { getTransactions, getObligations, getAccounts } from '../services/db';
 
 function Dashboard() {
   const [netWorth, setNetWorth] = useState(0);
+  const [accountsList, setAccountsList] = useState([]);
   const [budget, setBudget] = useState({ total: 3000, spent: 0 });
   const [lockedExpenses, setLockedExpenses] = useState(0);
   const [urgentItems, setUrgentItems] = useState([]);
@@ -15,6 +16,7 @@ function Dashboard() {
     try {
       // 1. Calculate Real Net Worth from Accounts
       const accs = await getAccounts();
+      setAccountsList(accs);
       const currentNetWorth = accs.reduce((sum, a) => sum + (a.balance || 0), 0);
       setNetWorth(currentNetWorth);
 
@@ -103,17 +105,33 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* Net Worth with Edit Icon */}
+      {/* Net Worth & Asset Breakdown */}
       <section style={{ marginBottom: '40px' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '5px' }}>Net Worth</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '25px' }}>
-          <h1 style={{ fontSize: '2.8rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-            RM {netWorth.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
-          </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+          <div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '5px' }}>Net Worth</p>
+            <h1 style={{ fontSize: '2.8rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+              RM {netWorth.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+            </h1>
+          </div>
           <button onClick={() => navigate('/accounts')} style={{ background: 'var(--surface-color)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
             <Edit2 size={16} />
           </button>
         </div>
+
+        {/* Dynamic Asset Cards */}
+        {accountsList.length > 0 && (
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '25px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+            {accountsList.map(acc => (
+              <div key={acc.id} style={{ padding: '15px', background: 'var(--surface-color)', borderRadius: '12px', minWidth: '130px', flexShrink: 0 }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 5px 0' }}>{acc.name}</p>
+                <p style={{ fontWeight: 600, fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0 }}>
+                  RM {acc.balance?.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
 
       {/* Minimalist Core Metric */}
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '5px' }}>本月剩餘自由額度</p>
