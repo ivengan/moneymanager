@@ -45,16 +45,19 @@ function Obligations() {
     if (formData.type === 'subscription') {
       payload.amount = parseFloat(formData.amount);
       payload.cycle = formData.cycle;
+      payload.isAutoDeduct = true;
     } else if (formData.type === 'installment') {
       payload.amountPerTerm = parseFloat(formData.amount);
       payload.totalTerms = parseInt(formData.totalTerms);
       payload.termsCompleted = 0;
       payload.remainingPrincipal = payload.amountPerTerm * payload.totalTerms;
+      payload.isAutoDeduct = false;
     } else if (formData.type === 'strategic_debt') {
       payload.remainingDebt = parseFloat(formData.amount); // amount is total debt here
       payload.gracePeriodEndDate = formData.gracePeriodEndDate;
       payload.highInterestRate = parseFloat(formData.highInterestRate);
       payload.minimumPayment = payload.remainingDebt * 0.05; // 5% mock min payment
+      payload.isAutoDeduct = false;
     }
 
     await addObligation(payload);

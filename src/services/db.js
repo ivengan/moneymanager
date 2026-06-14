@@ -86,3 +86,42 @@ export async function updateObligation(obligation) {
   const db = await initDB();
   return db.put('obligations', obligation);
 }
+
+// Background Auto-Sync Helper
+export async function processAutoDeductions() {
+  try {
+    const obs = await getObligations();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayObj = new Date(todayStr);
+
+    for (const ob of obs) {
+      if (ob.isAutoDeduct && ob.nextDueDate && ob.nextDueDate <= todayStr) {
+        // Log transaction
+        await addTransaction({
+          amount: ob.amount || ob.amountPerTerm || 0,
+          note: `${ob.name} (Auto-Deduct)`,
+          accountId: 'cash',
+          date: ob.nextDueDate,
+          category: 'Auto Subscription'
+        });
+
+        // Update next due date
+        const nextDate = new Date(ob.nextDueDate);
+        if (ob.cycle === 'yearly') {
+          nextDate.setFullYear(nextDate.getFullYear() + 1);
+        } else {
+          nextDate.setMonth(nextDate.getMonth() + 1);
+        }
+        
+        await updateObligation({
+          ...ob,
+          nextDueDate: nextDate.toISOString().split('T')[0]
+        });
+        
+        console.log(`[Auto-Deduct] Processed ${ob.name} for ${ob.nextDueDate}`);
+      }
+    }
+  } catch (err) {
+    console.error("Auto-deduction failed:", err);
+  }
+}

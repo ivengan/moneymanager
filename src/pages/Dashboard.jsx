@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Bell, Inbox } from 'lucide-react';
+import { PlusCircle, Bell, Inbox, Calendar as CalendarIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import QuickEntryModal from '../components/QuickEntryModal';
-
 import { getTransactions, getObligations } from '../services/db';
 
 function Dashboard() {
-  const [netWorth, setNetWorth] = useState(15450.50);
+  const [netWorth, setNetWorth] = useState(0);
   const [budget, setBudget] = useState({ total: 3000, spent: 0 });
   const [lockedExpenses, setLockedExpenses] = useState(0);
   const [urgentItems, setUrgentItems] = useState([]);
@@ -16,10 +15,9 @@ function Dashboard() {
     try {
       const txs = await getTransactions();
       const totalSpent = txs.reduce((sum, t) => sum + (t.amount || 0), 0);
-      setNetWorth(15450.50 - totalSpent); // Adjust initial mocked balance
+      setNetWorth(15450.50 - totalSpent); // base balance logic
       setBudget(prev => ({ ...prev, spent: totalSpent }));
 
-      // Obligations logic
       const obs = await getObligations();
       let locked = 0;
       let urgents = [];
@@ -31,32 +29,33 @@ function Dashboard() {
         if (ob.type === 'subscription') locked += (ob.amount || 0);
         if (ob.type === 'installment' && ob.termsCompleted < ob.totalTerms) locked += (ob.amountPerTerm || 0);
         
-        // Strategic Debt Warnings
-        if (ob.type === 'strategic_debt' && ob.gracePeriodEndDate) {
-          const graceDate = new Date(ob.gracePeriodEndDate);
-          if (graceDate <= thirtyDaysFromNow) {
-            urgents.push({
-              id: ob.id,
-              title: `CRITICAL: ${ob.name} Grace Period Ends Soon!`,
-              amount: ob.remainingDebt,
-              due: ob.gracePeriodEndDate,
-              isCritical: true
-            });
+        // ONLY manual tasks get added to Upcoming Actions
+        if (!ob.isAutoDeduct) {
+          if (ob.type === 'strategic_debt' && ob.gracePeriodEndDate) {
+            const graceDate = new Date(ob.gracePeriodEndDate);
+            if (graceDate <= thirtyDaysFromNow) {
+              urgents.push({
+                id: ob.id,
+                title: `ACTION REQ: ${ob.name}`,
+                amount: ob.remainingDebt,
+                due: ob.gracePeriodEndDate,
+                isCritical: true
+              });
+            }
           }
-        }
-        
-        // Standard upcoming dues (within 5 days)
-        if (ob.nextDueDate) {
-          const dueDate = new Date(ob.nextDueDate);
-          const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-          if (diffDays >= 0 && diffDays <= 5) {
-            urgents.push({
-              id: `due_${ob.id}`,
-              title: `Due: ${ob.name}`,
-              amount: ob.type === 'installment' ? ob.amountPerTerm : (ob.type === 'subscription' ? ob.amount : ob.minimumPayment),
-              due: diffDays === 0 ? 'Today' : `In ${diffDays} days`,
-              isCritical: false
-            });
+          
+          if (ob.nextDueDate) {
+            const dueDate = new Date(ob.nextDueDate);
+            const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+            if (diffDays >= 0 && diffDays <= 5) {
+              urgents.push({
+                id: `due_${ob.id}`,
+                title: `${ob.name}`,
+                amount: ob.type === 'installment' ? ob.amountPerTerm : ob.minimumPayment,
+                due: diffDays === 0 ? 'Today' : `In ${diffDays} days`,
+                isCritical: false
+              });
+            }
           }
         }
       });
@@ -73,112 +72,83 @@ function Dashboard() {
   }, []);
 
   const remainingBudget = budget.total - budget.spent - lockedExpenses;
-  const budgetPercentage = (remainingBudget / budget.total) * 100;
-  
-  // Warning state if < 20% budget remains
-  const isWarning = budgetPercentage < 20;
-
-  const handleQuickEntrySuccess = () => {
-    setIsQuickEntryOpen(false);
-    loadData();
-    alert("Transaction saved offline!");
-  };
+  const budgetPercentage = ((budget.total - remainingBudget) / budget.total) * 100;
+  const isWarning = remainingBudget / budget.total < 0.2;
 
   const navigate = useNavigate();
 
   return (
-    <div style={{ padding: '20px', paddingBottom: '80px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }} className="fade-in">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-        <h2 style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '1.8rem', margin: 0 }}>Dashboard</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="glass-panel" onClick={() => navigate('/bot-inbox')} style={{ padding: '8px', borderRadius: '50%', display: 'flex', border: 'none', cursor: 'pointer' }}>
-            <Inbox size={20} color="var(--primary-color)" />
+    <div style={{ padding: '20px', paddingBottom: '80px', minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }} className="fade-in">
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <h2 style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '1.8rem', margin: 0, color: 'var(--text-primary)' }}>Overview</h2>
+        <div style={{ display: 'flex', gap: '15px' }}>
+          <button onClick={() => navigate('/bot-inbox')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <Inbox size={22} />
           </button>
-          <button className="glass-panel" onClick={() => navigate('/obligations')} style={{ padding: '8px', borderRadius: '50%', display: 'flex', border: 'none', cursor: 'pointer', background: 'var(--primary-gradient)' }}>
-            <Bell size={20} color="white" />
+          <button onClick={() => navigate('/calendar')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <CalendarIcon size={22} />
+          </button>
+          <button onClick={() => navigate('/obligations')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <Bell size={22} />
           </button>
         </div>
       </header>
 
-      {/* Net Worth Monitor */}
-      <section className="glass-panel" style={{ padding: '25px', marginBottom: '20px', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Net Worth</p>
-        <h1 className="gradient-text" style={{ fontSize: '2.5rem', margin: 0 }}>
-          RM {netWorth.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+      {/* Minimalist Core Metric */}
+      <section style={{ marginBottom: '40px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '5px' }}>本月剩餘自由額度</p>
+        <h1 style={{ fontSize: '2.5rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 15px 0' }}>
+          RM {remainingBudget.toLocaleString('en-MY', { minimumFractionDigits: 2 })} <span style={{fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: 400}}>/ RM {budget.total.toLocaleString()}</span>
         </h1>
-      </section>
-
-      {/* Flexible Budget Pool */}
-      <section className="glass-panel" style={{ padding: '20px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <span style={{ fontWeight: 500 }}>Budget Pool</span>
-          <span style={{ color: isWarning ? 'var(--warning-color)' : 'var(--text-secondary)' }}>
-            RM {remainingBudget.toLocaleString()} left
-          </span>
-        </div>
         
-        {/* Progress Bar Container */}
-        <div style={{ height: '12px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', overflow: 'hidden' }}>
+        {/* Minimalist Progress Bar */}
+        <div style={{ height: '8px', background: 'var(--surface-border)', borderRadius: '4px', overflow: 'hidden' }}>
           <div style={{ 
             height: '100%', 
             width: `${Math.max(0, Math.min(100, budgetPercentage))}%`,
-            background: isWarning ? 'var(--warning-color)' : 'var(--text-primary)',
-            borderRadius: '6px',
+            background: isWarning ? 'var(--text-primary)' : 'var(--text-secondary)',
+            borderRadius: '4px',
             transition: 'width 0.5s ease-out, background 0.3s'
           }} />
         </div>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', textAlign: 'right' }}>
-          Locked expenses: RM {lockedExpenses.toLocaleString()}
-        </p>
       </section>
 
-      {/* Urgent Action Items */}
-      <section style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-        <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', color: 'var(--text-secondary)' }}>Urgent Action Items</h3>
+      {/* Upcoming Action - Only Manual Items */}
+      <section style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '15px', color: 'var(--text-primary)' }}>Upcoming Actions</h3>
         {urgentItems.length === 0 ? (
-          <p style={{ color: 'var(--text-secondary)' }}>No urgent items.</p>
+          <div style={{ padding: '20px', textAlign: 'center', background: 'var(--surface-color)', borderRadius: '12px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No manual actions required.</p>
+          </div>
         ) : (
           urgentItems.map(item => (
-            <div key={item.id} className="glass-panel fade-in" style={{ padding: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `4px solid ${item.isCritical ? 'var(--danger-color)' : 'var(--warning-color)'}` }}>
+            <div key={item.id} style={{ padding: '15px 20px', marginBottom: '10px', background: 'var(--surface-color)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p style={{ fontWeight: 600, fontSize: '0.95rem', color: item.isCritical ? 'var(--danger-color)' : 'inherit' }}>{item.title}</p>
+                <p style={{ fontWeight: 500, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{item.title}</p>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Due: {item.due}</p>
               </div>
-              <p style={{ fontWeight: 600 }}>RM {item.amount?.toFixed(2)}</p>
+              <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>RM {item.amount?.toFixed(2)}</p>
             </div>
           ))
         )}
       </section>
 
-      {/* Floating Action Button for Quick Entry */}
+      {/* Floating Action Button */}
       <button style={{
-        position: 'fixed',
-        bottom: '30px',
-        right: '30px',
-        background: 'var(--primary-gradient)',
-        color: 'white',
-        borderRadius: '50%',
-        width: '60px',
-        height: '60px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 4px 20px rgba(123, 97, 255, 0.5)',
-        zIndex: 100,
-        transition: 'transform 0.2s'
-      }}
-      onClick={() => setIsQuickEntryOpen(true)}
-      >
+        position: 'fixed', bottom: '30px', right: '30px', background: 'var(--text-primary)',
+        color: 'var(--bg-primary)', borderRadius: '50%', width: '60px', height: '60px', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', zIndex: 100,
+        border: 'none', cursor: 'pointer'
+      }} onClick={() => setIsQuickEntryOpen(true)}>
         <PlusCircle size={30} />
       </button>
 
       {isQuickEntryOpen && (
         <QuickEntryModal 
           onClose={() => setIsQuickEntryOpen(false)} 
-          onSuccess={handleQuickEntrySuccess}
+          onSuccess={() => { setIsQuickEntryOpen(false); loadData(); }}
         />
       )}
-
     </div>
   );
 }

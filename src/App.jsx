@@ -1,15 +1,18 @@
+import { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import PinLock from './pages/PinLock';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import BotInbox from './pages/BotInbox';
 import Obligations from './pages/Obligations';
+import { processAutoDeductions } from './services/db';
 import './App.css';
 import './services/sync'; // Initialize Firebase background sync
 
 function App() {
-  // In a real app, we'd check IndexedDB/State for auth status
-  const isAuthenticated = false; // Mock for now
+  useEffect(() => {
+    processAutoDeductions();
+  }, []);
 
   return (
     <Router>
