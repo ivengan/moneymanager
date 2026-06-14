@@ -3,18 +3,29 @@ import { PlusCircle, Bell, Inbox } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import QuickEntryModal from '../components/QuickEntryModal';
 
+import { getTransactions } from '../services/db';
+
 function Dashboard() {
-  const [netWorth, setNetWorth] = useState(0);
-  const [budget, setBudget] = useState({ total: 3000, spent: 2500 });
+  const [netWorth, setNetWorth] = useState(15450.50);
+  const [budget, setBudget] = useState({ total: 3000, spent: 0 });
   const [urgentItems, setUrgentItems] = useState([
     { id: 1, title: 'UOB Balance Transfer', amount: 500, due: 'Today' }
   ]);
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
 
-  // Mock data fetching
+  const loadData = async () => {
+    try {
+      const txs = await getTransactions();
+      const totalSpent = txs.reduce((sum, t) => sum + (t.amount || 0), 0);
+      setNetWorth(15450.50 - totalSpent); // Adjust initial mocked balance
+      setBudget(prev => ({ ...prev, spent: totalSpent }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
-    // In real app, fetch from IndexedDB
-    setNetWorth(15450.50);
+    loadData();
   }, []);
 
   const remainingBudget = budget.total - budget.spent;
@@ -25,8 +36,8 @@ function Dashboard() {
 
   const handleQuickEntrySuccess = () => {
     setIsQuickEntryOpen(false);
-    // In a real app, we would refresh the data here
-    alert("Transaction saved offline! AI will categorize it shortly.");
+    loadData();
+    alert("Transaction saved offline!");
   };
 
   const navigate = useNavigate();

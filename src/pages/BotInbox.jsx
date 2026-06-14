@@ -3,6 +3,8 @@ import { Inbox, Check, Trash2, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { parseTransactionText } from '../services/bot';
 
+import { addTransaction } from '../services/db';
+
 function BotInbox() {
   const navigate = useNavigate();
   const [inputText, setInputText] = useState('');
@@ -19,16 +21,27 @@ function BotInbox() {
       id: idCounter,
       raw: inputText,
       ...parsedData,
-      account: 'Unknown' // Default
+      account: 'cash' // Default to cash for bot parser
     }, ...transactions]);
     
     setIdCounter(prev => prev + 1);
     setInputText('');
   };
 
-  const handleApprove = (id) => {
+  const handleApprove = async (id) => {
+    const tx = transactions.find(t => t.id === id);
+    if (tx) {
+      await addTransaction({
+        amount: tx.amount,
+        note: tx.raw,
+        accountId: tx.account,
+        date: new Date().toISOString().split('T')[0],
+        category: tx.category,
+        merchant: tx.merchant,
+        status: 'completed'
+      });
+    }
     setTransactions(transactions.filter(t => t.id !== id));
-    // In real app: save to IndexedDB ledger
   };
 
   const handleDelete = (id) => {
