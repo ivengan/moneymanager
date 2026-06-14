@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import PinLock from './pages/PinLock';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
