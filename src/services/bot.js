@@ -1,6 +1,5 @@
-
 /**
- * Parses raw text (SMS or receipt notes) into structured transaction data using rule-based logic.
+ * Parses raw text (SMS or receipt notes) into structured transaction data using offline rule-based logic.
  * @param {string} rawText - The raw input text.
  * @returns {Promise<Object>} - Parsed transaction data containing amount, merchant, and category.
  */

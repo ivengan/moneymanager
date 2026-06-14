@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Bell } from 'lucide-react';
+import { PlusCircle, Bell, Inbox } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import QuickEntryModal from '../components/QuickEntryModal';
 
 function Dashboard() {
@@ -28,13 +29,20 @@ function Dashboard() {
     alert("Transaction saved offline! AI will categorize it shortly.");
   };
 
+  const navigate = useNavigate();
+
   return (
     <div style={{ padding: '20px', paddingBottom: '80px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }} className="fade-in">
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-        <h2 style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '1.8rem' }}>Dashboard</h2>
-        <button className="glass-panel" style={{ padding: '8px', borderRadius: '50%', display: 'flex' }}>
-          <Bell size={20} color="var(--text-primary)" />
-        </button>
+        <h2 style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '1.8rem', margin: 0 }}>Dashboard</h2>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="glass-panel" onClick={() => navigate('/bot-inbox')} style={{ padding: '8px', borderRadius: '50%', display: 'flex', border: 'none', cursor: 'pointer' }}>
+            <Inbox size={20} color="var(--primary-color)" />
+          </button>
+          <button className="glass-panel" style={{ padding: '8px', borderRadius: '50%', display: 'flex', border: 'none', cursor: 'pointer' }}>
+            <Bell size={20} color="var(--text-primary)" />
+          </button>
+        </div>
       </header>
 
       {/* Net Worth Monitor */}

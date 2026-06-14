@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import PinLock from './pages/PinLock';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
-import AiInbox from './pages/AiInbox';
+import BotInbox from './pages/BotInbox';
 import './App.css';
 import './services/sync'; // Initialize Firebase background sync
 
@@ -17,7 +17,7 @@ function App() {
           <Route path="/" element={<PinLock />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendar" element={<Calendar />} />
-          <Route path="/inbox" element={<AiInbox />} />
+          <Route path="/bot-inbox" element={<BotInbox />} />
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
