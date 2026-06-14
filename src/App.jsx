@@ -6,6 +6,7 @@ import Calendar from './pages/Calendar';
 import BotInbox from './pages/BotInbox';
 import Obligations from './pages/Obligations';
 import Accounts from './pages/Accounts';
+import Analytics from './pages/Analytics';
 import { processAutoDeductions } from './services/db';
 import './App.css';
 import './services/sync'; // Initialize Firebase background sync
@@ -25,6 +26,7 @@ function App() {
           <Route path="/bot-inbox" element={<BotInbox />} />
           <Route path="/obligations" element={<Obligations />} />
           <Route path="/accounts" element={<Accounts />} />
+          <Route path="/analytics" element={<Analytics />} />
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

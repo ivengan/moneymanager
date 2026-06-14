@@ -170,7 +170,7 @@ function Calendar() {
                   <div>
                     <p style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '1.05rem', margin: '0 0 4px 0' }}>{exp.name}</p>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                      {exp.isAutoDeduct ? '自動處理 (Auto)' : '手動確認 (Manual)'}
+                      {exp.isAutoDeduct ? 'Auto-Deduct' : 'Manual Confirm'}
                     </p>
                   </div>
                   <p style={{ fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
@@ -188,7 +188,7 @@ function Calendar() {
                       display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px',
                       cursor: 'pointer', transition: 'all 0.2s'
                     }}>
-                    確認已繳
+                    Confirm Paid
                   </button>
                 )}
               </div>

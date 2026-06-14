@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Bell, Inbox, Calendar as CalendarIcon, Edit2 } from 'lucide-react';
+import { PlusCircle, Bell, Inbox, Calendar as CalendarIcon, Edit2, AlertTriangle, PieChart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import QuickEntryModal from '../components/QuickEntryModal';
-import { getTransactions, getObligations, getAccounts } from '../services/db';
+import { getTransactions, getObligations, getAccounts, updateNetWorthHistory } from '../services/db';
 
 function Dashboard() {
   const [netWorth, setNetWorth] = useState(0);
@@ -19,10 +19,13 @@ function Dashboard() {
       setAccountsList(accs);
       const currentNetWorth = accs.reduce((sum, a) => sum + (a.balance || 0), 0);
       setNetWorth(currentNetWorth);
+      
+      const currentMonth = new Date().toISOString().substring(0, 7);
+      await updateNetWorthHistory(currentMonth, currentNetWorth);
 
       // 2. Calculate Monthly Spent for Budget
       const txs = await getTransactions();
-      const thisMonth = new Date().toISOString().substring(0, 7); // e.g. "2026-06"
+      const thisMonth = new Date().toISOString().substring(0, 7);
       const monthlySpent = txs
         .filter(t => t.date && t.date.startsWith(thisMonth))
         .reduce((sum, t) => sum + (t.amount || 0), 0);
@@ -47,7 +50,7 @@ function Dashboard() {
             if (graceDate <= thirtyDaysFromNow) {
               urgents.push({
                 id: ob.id,
-                title: `ACTION REQ: ${ob.name}`,
+                title: `${ob.name}`,
                 amount: ob.remainingDebt,
                 due: ob.gracePeriodEndDate,
                 isCritical: true
@@ -73,12 +76,29 @@ function Dashboard() {
       
       setLockedExpenses(locked);
       setUrgentItems(urgents);
+      
+      // FIREWALL: Trigger local browser notification if there are urgent items
+      if (urgents.length > 0 && Notification.permission === 'granted') {
+        // Only trigger once per session to avoid spamming
+        if (!sessionStorage.getItem('notified_urgent')) {
+          new Notification("Action Required", {
+            body: `You have ${urgents.length} unconfirmed financial obligation(s).`,
+            icon: "/vite.svg"
+          });
+          sessionStorage.setItem('notified_urgent', 'true');
+        }
+      }
+
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
+    // Request Notification permission on mount
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
     loadData();
   }, []);
 
@@ -93,6 +113,9 @@ function Dashboard() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h2 style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: '1.8rem', margin: 0, color: 'var(--text-primary)' }}>Overview</h2>
         <div style={{ display: 'flex', gap: '15px' }}>
+          <button onClick={() => navigate('/analytics')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <PieChart size={22} />
+          </button>
           <button onClick={() => navigate('/bot-inbox')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
             <Inbox size={22} />
           </button>
@@ -104,6 +127,25 @@ function Dashboard() {
           </button>
         </div>
       </header>
+
+      {/* FINANCIAL FIREWALL: Aggressive Top-Pinned Reminders */}
+      {urgentItems.length > 0 && (
+        <section style={{ marginBottom: '35px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
+            <AlertTriangle size={20} color="#ef4444" />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ef4444', margin: 0 }}>Action Required</h3>
+          </div>
+          {urgentItems.map(item => (
+            <div key={item.id} style={{ padding: '15px 20px', marginBottom: '10px', background: 'var(--surface-color)', borderLeft: '4px solid #ef4444', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.1)' }}>
+              <div>
+                <p style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 4px 0' }}>{item.title}</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>Due: {item.due}</p>
+              </div>
+              <p style={{ fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>RM {item.amount?.toFixed(2)}</p>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Net Worth & Asset Breakdown */}
       <section style={{ marginBottom: '40px' }}>
@@ -124,7 +166,7 @@ function Dashboard() {
           <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '25px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
             {accountsList.map(acc => (
               <div key={acc.id} style={{ padding: '15px', background: 'var(--surface-color)', borderRadius: '12px', minWidth: '130px', flexShrink: 0 }}>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 5px 0' }}>{acc.name}</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 5px 0', textTransform: 'capitalize' }}>{acc.name}</p>
                 <p style={{ fontWeight: 600, fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0 }}>
                   RM {acc.balance?.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
                 </p>
@@ -134,7 +176,7 @@ function Dashboard() {
         )}
 
       {/* Minimalist Core Metric */}
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '5px' }}>本月剩餘自由額度</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '5px' }}>Remaining Flexible Budget</p>
         <h2 style={{ fontSize: '1.8rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 15px 0' }}>
           RM {remainingBudget.toLocaleString('en-MY', { minimumFractionDigits: 2 })} <span style={{fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 400}}>/ RM {budget.total.toLocaleString()}</span>
         </h2>
@@ -149,26 +191,6 @@ function Dashboard() {
             transition: 'width 0.5s ease-out, background 0.3s'
           }} />
         </div>
-      </section>
-
-      {/* Upcoming Action - Only Manual Items */}
-      <section style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '15px', color: 'var(--text-primary)' }}>Upcoming Actions</h3>
-        {urgentItems.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', background: 'var(--surface-color)', borderRadius: '12px' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No manual actions required.</p>
-          </div>
-        ) : (
-          urgentItems.map(item => (
-            <div key={item.id} style={{ padding: '15px 20px', marginBottom: '10px', background: 'var(--surface-color)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ fontWeight: 500, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{item.title}</p>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Due: {item.due}</p>
-              </div>
-              <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>RM {item.amount?.toFixed(2)}</p>
-            </div>
-          ))
-        )}
       </section>
 
       {/* Floating Action Button */}

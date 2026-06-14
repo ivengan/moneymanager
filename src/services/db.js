@@ -1,7 +1,7 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'MoneyManagerDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export async function initDB() {
   return openDB(DB_NAME, DB_VERSION, {
@@ -21,6 +21,9 @@ export async function initDB() {
         const obStore = db.createObjectStore('obligations', { keyPath: 'id', autoIncrement: true });
         obStore.createIndex('type', 'type');
         obStore.createIndex('nextDueDate', 'nextDueDate');
+      }
+      if (!db.objectStoreNames.contains('net_worth_history')) {
+        db.createObjectStore('net_worth_history', { keyPath: 'month' });
       }
     },
   });
@@ -158,4 +161,15 @@ export async function processAutoDeductions() {
   } catch (err) {
     console.error("Auto-deduction failed:", err);
   }
+}
+
+// Net Worth History
+export async function updateNetWorthHistory(month, value) {
+  const db = await initDB();
+  return db.put('net_worth_history', { month, value });
+}
+
+export async function getNetWorthHistory() {
+  const db = await initDB();
+  return db.getAll('net_worth_history');
 }
