@@ -57,6 +57,15 @@ export async function validatePin(pin) {
 // Transactions
 export async function addTransaction(transaction) {
   const db = await initDB();
+  
+  if (transaction.accountId) {
+    const acc = await db.get('accounts', transaction.accountId);
+    if (acc) {
+      acc.balance -= (transaction.amount || 0);
+      await db.put('accounts', acc);
+    }
+  }
+
   return db.add('transactions', {
     ...transaction,
     createdAt: new Date().toISOString()
@@ -66,6 +75,31 @@ export async function addTransaction(transaction) {
 export async function getTransactions() {
   const db = await initDB();
   return db.getAllFromIndex('transactions', 'date');
+}
+
+// Accounts
+export async function addAccount(account) {
+  const db = await initDB();
+  return db.add('accounts', {
+    ...account,
+    id: account.id || Date.now().toString(),
+    createdAt: new Date().toISOString()
+  });
+}
+
+export async function getAccounts() {
+  const db = await initDB();
+  return db.getAll('accounts');
+}
+
+export async function updateAccount(account) {
+  const db = await initDB();
+  return db.put('accounts', account);
+}
+
+export async function deleteAccount(id) {
+  const db = await initDB();
+  return db.delete('accounts', id);
 }
 
 // Obligations

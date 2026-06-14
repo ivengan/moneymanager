@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Bell, Inbox, Calendar as CalendarIcon } from 'lucide-react';
+import { PlusCircle, Bell, Inbox, Calendar as CalendarIcon, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import QuickEntryModal from '../components/QuickEntryModal';
-import { getTransactions, getObligations } from '../services/db';
+import { getTransactions, getObligations, getAccounts } from '../services/db';
 
 function Dashboard() {
   const [netWorth, setNetWorth] = useState(0);
@@ -13,11 +13,20 @@ function Dashboard() {
 
   const loadData = async () => {
     try {
-      const txs = await getTransactions();
-      const totalSpent = txs.reduce((sum, t) => sum + (t.amount || 0), 0);
-      setNetWorth(15450.50 - totalSpent); // base balance logic
-      setBudget(prev => ({ ...prev, spent: totalSpent }));
+      // 1. Calculate Real Net Worth from Accounts
+      const accs = await getAccounts();
+      const currentNetWorth = accs.reduce((sum, a) => sum + (a.balance || 0), 0);
+      setNetWorth(currentNetWorth);
 
+      // 2. Calculate Monthly Spent for Budget
+      const txs = await getTransactions();
+      const thisMonth = new Date().toISOString().substring(0, 7); // e.g. "2026-06"
+      const monthlySpent = txs
+        .filter(t => t.date && t.date.startsWith(thisMonth))
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+      setBudget(prev => ({ ...prev, spent: monthlySpent }));
+
+      // 3. Obligations Logic
       const obs = await getObligations();
       let locked = 0;
       let urgents = [];
@@ -94,12 +103,23 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* Minimalist Core Metric */}
+      {/* Net Worth with Edit Icon */}
       <section style={{ marginBottom: '40px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '5px' }}>Net Worth</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '25px' }}>
+          <h1 style={{ fontSize: '2.8rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+            RM {netWorth.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+          </h1>
+          <button onClick={() => navigate('/accounts')} style={{ background: 'var(--surface-color)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <Edit2 size={16} />
+          </button>
+        </div>
+
+      {/* Minimalist Core Metric */}
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '5px' }}>本月剩餘自由額度</p>
-        <h1 style={{ fontSize: '2.5rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 15px 0' }}>
-          RM {remainingBudget.toLocaleString('en-MY', { minimumFractionDigits: 2 })} <span style={{fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: 400}}>/ RM {budget.total.toLocaleString()}</span>
-        </h1>
+        <h2 style={{ fontSize: '1.8rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 15px 0' }}>
+          RM {remainingBudget.toLocaleString('en-MY', { minimumFractionDigits: 2 })} <span style={{fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 400}}>/ RM {budget.total.toLocaleString()}</span>
+        </h2>
         
         {/* Minimalist Progress Bar */}
         <div style={{ height: '8px', background: 'var(--surface-border)', borderRadius: '4px', overflow: 'hidden' }}>
